@@ -122,7 +122,7 @@ Rational Rational::operator++(int)
     return r;
 }
 
-// ==
+// == с Rational
 bool Rational::operator==(const Rational &r) const
 {
     return (numer == r.numer) && (denom == r.denom);
@@ -132,6 +132,29 @@ bool Rational::operator==(const Rational &r) const
 bool Rational::operator!=(const Rational &r) const
 {
     return !(*this == r);
+}
+
+// Операции сравнения Int
+
+// Оператор ==
+bool Rational::operator==(const int &r) const
+{
+    // Дробь a/b равна числу r, если a == r * b
+    return numer == r * denom;
+}
+
+// Оператор !=
+bool Rational::operator!=(const int &r) const
+{
+    return !(*this == r);
+}
+
+// Оператор <
+bool Rational::operator<(const int &r) const
+{
+    // Для корректной работы с отрицательным знаменателем
+    // логику стоит усложнить, но для стандартной дроби:
+    return numer < r * denom;
 }
 
 // int
@@ -149,7 +172,18 @@ Rational::operator double() const
 // ввод
 istream &operator>>(istream &in, Rational &r)
 {
-    in >> r.numer >> r.denom;
+    in >> r.numer;
+
+    if (in.peek() == ' ')
+    {
+        in.ignore();
+        in >> r.denom;
+    }
+    else
+    {
+        r.denom = 1;
+    }
+
     return in;
 }
 
@@ -167,7 +201,7 @@ Rational operator*(int i, const Rational &j)
 }
 
 // Квадратичное уравнение
-void Rational::square(const Rational &a, const Rational &b, const Rational &c)
+void square(const Rational &a, const Rational &b, const Rational &c)
 {
     Rational D = b * b - (4 * a * c);
     cout << "Quadratic equation: (" << a << ")x^2 + (" << b << ")x + (" << c << ") = 0" << endl;

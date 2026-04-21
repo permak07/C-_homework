@@ -30,12 +30,16 @@ public:
     bool operator==(const Rational &r) const;
     bool operator!=(const Rational &r) const;
 
+    bool operator==(const int &r) const;
+    bool operator!=(const int &r) const;
+    bool operator<(const int &r) const;
+
     operator int() const;
     operator double() const;
 
     friend istream &operator>>(istream &in, Rational &r);
     friend ostream &operator<<(ostream &out, const Rational &r);
-
-    // Квадратичное уравнение
-    static void square(const Rational &a, const Rational &b, const Rational &c);
 };
+
+// Квадратичное уравнение
+void square(const Rational &a, const Rational &b, const Rational &c);
