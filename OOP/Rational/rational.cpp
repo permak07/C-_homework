@@ -139,7 +139,6 @@ bool Rational::operator!=(const Rational &r) const
 // Оператор ==
 bool Rational::operator==(const int &r) const
 {
-    // Дробь a/b равна числу r, если a == r * b
     return numer == r * denom;
 }
 
@@ -152,8 +151,6 @@ bool Rational::operator!=(const int &r) const
 // Оператор <
 bool Rational::operator<(const int &r) const
 {
-    // Для корректной работы с отрицательным знаменателем
-    // логику стоит усложнить, но для стандартной дроби:
     return numer < r * denom;
 }
 
@@ -174,11 +171,13 @@ istream &operator>>(istream &in, Rational &r)
 {
     in >> r.numer;
 
-    if (in.peek() == ' ')
+    // Если есть пробел или /, то пропускаем его и вводим знаменатель
+    if (in.peek() == ' ' || in.peek() == '/')
     {
         in.ignore();
         in >> r.denom;
     }
+    // Если дан только числитель
     else
     {
         r.denom = 1;
@@ -207,6 +206,7 @@ void square(const Rational &a, const Rational &b, const Rational &c)
     cout << "Quadratic equation: (" << a << ")x^2 + (" << b << ")x + (" << c << ") = 0" << endl;
     cout << "Discriminant D = " << D << endl;
 
+    // Проверка что дискрименант не 0
     if (double(D) < 0.0)
     {
         cout << "No real roots (D < 0)" << endl;
@@ -216,11 +216,14 @@ void square(const Rational &a, const Rational &b, const Rational &c)
     int num = D.numer;
     int den = D.denom;
 
+    // беру корень из числителя и знаменателя
     int sqrt_num = (int)sqrt(abs(num));
     int sqrt_den = (int)sqrt(den);
 
+    // Проверка на полный квадрат
     if (sqrt_num * sqrt_num == abs(num) && sqrt_den * sqrt_den == den)
     {
+        // Расчёты
         Rational sqrtD((num >= 0 ? sqrt_num : -sqrt_num), sqrt_den);
         Rational two_a = Rational(2) * a;
         Rational x1 = (-b + sqrtD) / two_a;
