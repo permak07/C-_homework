@@ -9,23 +9,40 @@ bool DataTime::vis_year(int year) const
     return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }
 
+// Дней в месяце через юлианскую дату
 int DataTime::days_in_month(int month, int year) const
 {
-    int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    if (month == 2 && vis_year(year))
-        return 29;
-    return days[month - 1];
+    // Текущая юлианская дата
+    double cur_date = date_to_Julian(1, month, year);
+    int next_month = month + 1;
+    int next_year = year;
+    // Увеличиваем год, если текущий месяц декабрь
+    if (next_month > 12)
+    {
+        next_month = 1;
+        next_year++;
+    }
+    // Юлианская дата через месяц
+    double next_date = date_to_Julian(1, next_month, next_year);
+    // Считаем разницу
+    return static_cast<int>(next_date - cur_date);
 }
 
 double DataTime::date_to_Julian(int day, int month, int year, int hour, int minute, int second) const
 {
-    long totaldays = day;
-    for (int i = 1; i < year; ++i)
-        totaldays += vis_year(i) ? 366 : 365;
-    for (int i = 1; i < month; ++i)
-        totaldays += days_in_month(i, year);
+    long long totaldays = day - 1;
 
-    double time_fraction = (hour * 3600 + minute * 60 + second) / 86400.0;
+    // Накопленные дни до начала месяца
+    static const int month_days[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+    totaldays += month_days[month - 1];
+    if (month > 2 && vis_year(year))
+        totaldays++;
+
+    // Дни в предыдущих годах (с 1 года)
+    long long y = year - 1;
+    totaldays += 365 * y + y / 4 - y / 100 + y / 400;
+
+    double time_fraction = (hour * 3600.0 + minute * 60.0 + second) / 86400.0;
     return (double)totaldays + time_fraction;
 }
 
@@ -57,7 +74,7 @@ void DataTime::Julian_to_date(int &day, int &month, int &year, int &hour, int &m
         total -= days_in_month(month, year);
         month++;
     }
-    day = (int)total;
+    day = (int)total + 1;
 }
 
 void DataTime::Julian_to_date(int &day, int &month, int &year) const
@@ -285,59 +302,54 @@ istream &operator>>(istream &in, DataTime &date)
 // Название файла
 string getMoonFilename(int year)
 {
-    return "moon/moon" + to_string(year) + ".dat";
+    return "Moon/moon" + to_string(year) + ".dat";
 }
 
 istream &operator>>(istream &in, MoonRecord &record)
 {
     string line;
 
-    // Пропускаем пустые строки
     while (getline(in, line))
     {
+        // Пропуск пустых строк
         if (line.empty())
             continue;
+        // Пропуск строк не начинающиеся с цифры
         size_t pos = line.find_first_not_of(" \t");
-        if (pos != string::npos && isdigit(line[pos]))
-            break; // нашли строку с данными
+        if (pos != string::npos && isdigit((unsigned char)line[pos]))
+            break;
     }
 
     if (line.empty())
     {
-        in.setstate(ios::failbit); // конец файла без данных
+        in.setstate(ios::failbit);
         return in;
     }
 
     int year, month, day, hour, minute, second;
-    double r, el, az, fi, lg, t = 0.0;
+    double v[6];
 
-    // Пытаемся прочитать данные
     int parsed = sscanf(line.c_str(), "%4d%2d%2d %2d%2d%2d %lf %lf %lf %lf %lf %lf",
                         &year, &month, &day, &hour, &minute, &second,
-                        &t, &r, &el, &az, &fi, &lg);
+                        &v[0], &v[1], &v[2], &v[3], &v[4], &v[5]);
 
-    if (parsed == 11)
+    double el;
+    if (parsed == 12)
     {
-        lg = fi;
-        fi = az;
-        az = el;
-        el = r;
-        r = t;
-        t = hour + minute / 60.0 + second / 3600.0;
+        el = v[2];
     }
-    else if (parsed != 12)
+    else if (parsed == 11)
+    {
+        el = v[1];
+    }
+    else
     {
         in.setstate(ios::failbit);
         return in;
     }
 
     record.dateTime = DataTime(day, month, year, hour, minute, second);
-    record.T = t;
-    record.R = r;
     record.El = el;
-    record.Az = az;
-    record.FI = fi;
-    record.LG = lg;
 
     return in;
 }
@@ -351,51 +363,76 @@ MoonEvents findMoonEvents(const char *fileName, const DataTime &searchDate)
     if (!in.is_open())
         return events;
 
-    string searchDateStr = searchDate.toStringDateOnly();
+    // Берём начало и конец нужной даты
+    double jd_start = searchDate.getValue();
+    double jd_end = jd_start + 1.0;
 
-    MoonRecord prevRec;
-    MoonRecord currRec;
-    MoonRecord maxElRec;
-    double maxEl = -90.0;
-    bool hasPrev = false;
-    bool riseFound = false;
-    bool setFound = false;
+    MoonRecord prev_rec;
+    MoonRecord curr_rec;
+    double max_el = -90.0;
+    bool has_prev = false;
+    bool rise_found = false;
+    bool set_found = false;
+    bool has_data = false;
 
-    while (in >> currRec)
+    while (in >> curr_rec)
     {
-        string currDateStr = currRec.getDateTime().toStringDateOnly();
-        if (currDateStr != searchDateStr)
+        // Переводим дату в юлианскую
+        double jd = curr_rec.getDateTime().getValue();
+
+        // Cохраняет как предыдущую и продолжает
+        if (jd < jd_start)
+        {
+            prev_rec = curr_rec;
+            has_prev = true;
             continue;
-
-        double currEl = currRec.getEl();
-        if (currEl > maxEl)
-        {
-            maxEl = currEl;
-            maxElRec = currRec;
         }
 
-        if (hasPrev)
+        // Выходит из цикла, если уже найдены восход и заход
+        if (jd >= jd_end)
         {
-            double prevEl = prevRec.getEl();
-            if (prevEl < 0 && currEl >= 0 && !riseFound)
+            if (rise_found && set_found)
+                break;
+            continue;
+        }
+
+        // Если есть дата, берём El
+        has_data = true;
+        double curr_el = curr_rec.getEl();
+
+        // Обновляет максимум El
+        if (curr_el > max_el)
+        {
+            max_el = curr_el;
+            events.culmination = curr_rec.getDateTime();
+        }
+
+        // Если есть предыдущая запись, проверяет пересечение нулевой высоты
+        if (has_prev)
+        {
+            // Берём предыдущий El
+            double prev_el = prev_rec.getEl();
+
+            // Проверка на восход
+            if (!rise_found && prev_el < 0 && curr_el >= 0)
             {
-                events.rise = currRec.getDateTime();
-                riseFound = true;
+                events.rise = curr_rec.getDateTime();
+                rise_found = true;
             }
-            if (prevEl >= 0 && currEl < 0 && !setFound)
+            // Проверка на заход
+            if (!set_found && prev_el >= 0 && curr_el < 0)
             {
-                events.set = currRec.getDateTime();
-                setFound = true;
+                events.set = curr_rec.getDateTime();
+                set_found = true;
             }
         }
 
-        prevRec = currRec;
-        hasPrev = true;
+        // Сохраняет текущую запись как предыдущую
+        prev_rec = curr_rec;
+        has_prev = true;
     }
 
-    if (maxEl > -90.0)
-        events.culmination = maxElRec.getDateTime();
-
-    events.found = (riseFound && maxEl > -90.0 && setFound);
+    // Если всё нашли, то возращаем результат
+    events.found = has_data && rise_found && set_found;
     return events;
 }

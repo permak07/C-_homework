@@ -10,21 +10,31 @@ int main()
     cout << "Enter date (dd.MM.yyyy): ";
     cin >> date;
 
-    string dateStr = date.toStringDateOnly();
-    int year = stoi(dateStr.substr(0, 4));
+    if (cin.fail())
+    {
+        cout << "Error: invalid or non-existent date (e.g. 31.02)!" << endl;
+        return 1;
+    }
+
+    int d, m, year;
+    date.Julian_to_date(d, m, year);
 
     cout << "\nDate: " << date.toStringDate() << endl;
     string filename = getMoonFilename(year);
+
+    // Проверка на существование файла
     ifstream test(filename.c_str());
     if (!test.is_open())
     {
         cout << "ERROR: Cannot open file " << filename << endl;
         return 1;
     }
-    cout << "Opening file: " << filename << endl;
+    test.close();
 
+    // Замеры времени и поиск
     auto start = chrono::high_resolution_clock::now();
     MoonEvents events = findMoonEvents(filename.c_str(), date);
+    auto end = chrono::high_resolution_clock::now();
 
     if (events.found)
     {
@@ -34,9 +44,10 @@ int main()
         cout << "Set:            " << events.set.toStringTime() << endl;
     }
     else
-        cout << "\nCould not find all moon events for this date." << endl;
+    {
+        cout << "\nThere is no such date." << endl;
+    }
 
-    auto end = chrono::high_resolution_clock::now();
     chrono::duration<double> elapsed = end - start;
     cout << "\nProgram execution time: " << elapsed.count() << " seconds." << endl;
 
