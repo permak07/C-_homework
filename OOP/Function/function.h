@@ -48,3 +48,16 @@ public:
     Exponenta(double a_, double b_, double c_);
     double evaluate(double x) const override;
 };
+
+// Полином n-й степени: y = coeff[0]*x^n + coeff[1]*x^(n-1) + ... + coeff[n]
+class Polinom : public Function
+{
+private:
+    std::vector<double> coeff; // коэффициенты от старшей степени к младшей
+public:
+    // Конструктор принимает вектор коэффициентов
+    Polinom(const std::vector<double> &coefficients);
+    double evaluate(double x) const override;
+};
+
+void showFunctionInfo(Function &f, double x, double a, double b);

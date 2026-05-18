@@ -8,7 +8,7 @@ void Function::print(double x) const
     cout << "f(" << x << ") = " << evaluate(x) << endl;
 }
 
-// Минимум
+// Поиск минимума: перебираем точки на отрезке [a, b]
 double Function::findMin(double a, double b, int steps) const
 {
     double minVal = evaluate(a);
@@ -25,7 +25,7 @@ double Function::findMin(double a, double b, int steps) const
     return minVal;
 }
 
-// Максимум
+// Поиск максимума: аналогично минимуму
 double Function::findMax(double a, double b, int steps) const
 {
     double maxVal = evaluate(a);
@@ -42,7 +42,8 @@ double Function::findMax(double a, double b, int steps) const
     return maxVal;
 }
 
-// Интегрирование через площадь трапеции
+// Интегрирование методом трапеций:
+// суммируем площади трапеций под графиком
 double Function::integrate(double a, double b, int steps) const
 {
     double step = (b - a) / steps;
@@ -64,6 +65,7 @@ double Function::differentiate(double x, double h) const
 }
 
 // Parabola
+
 Parabola::Parabola(double a_, double b_, double c_) : a(a_), b(b_), c(c_) {}
 
 double Parabola::evaluate(double x) const
@@ -72,6 +74,7 @@ double Parabola::evaluate(double x) const
 }
 
 // Hiperbola
+
 Hiperbola::Hiperbola(double a_, double b_) : a(a_), b(b_) {}
 
 double Hiperbola::evaluate(double x) const
@@ -86,9 +89,37 @@ double Hiperbola::evaluate(double x) const
 }
 
 // Exponenta
+
 Exponenta::Exponenta(double a_, double b_, double c_) : a(a_), b(b_), c(c_) {}
 
 double Exponenta::evaluate(double x) const
 {
     return a * exp(b * x) + c;
+}
+
+// Polinom
+
+Polinom::Polinom(const vector<double> &coefficients) : coeff(coefficients) {}
+
+double Polinom::evaluate(double x) const
+{
+    double result = 0.0;
+    // coeff[0] — старший коэффициент (x^n), coeff[n] — свободный член
+    int n = coeff.size() - 1;
+    for (size_t i = 0; i < coeff.size(); i++)
+    {
+        result += coeff[i] * pow(x, n - i);
+    }
+    return result;
+}
+
+void showFunctionInfo(Function &f, double x, double a, double b)
+{
+    cout << "Value x = " << x << ": " << endl;
+    f.print(x);
+    cout << "Minimum on [" << a << ", " << b << "]: " << f.findMin(a, b) << endl;
+    cout << "Maximum on [" << a << ", " << b << "]: " << f.findMax(a, b) << endl;
+    cout << "Integral on [" << a << ", " << b << "]: " << f.integrate(a, b) << endl;
+    cout << "Derivative at point x = " << x << ": " << f.differentiate(x) << endl;
+    cout << endl;
 }
